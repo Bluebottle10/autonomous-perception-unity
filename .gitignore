@@ -1,0 +1,127 @@
+# ============================================================
+# Unity .gitignore
+# Tracks ONLY custom scripts, shaders, materials, scenes,
+# and project settings. Excludes all generated/imported content.
+# ============================================================
+
+# ── Unity Generated (HUGE - never commit) ────────────────────
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]serSettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# ── IDE ──────────────────────────────────────────────────────
+.vs/
+.vscode/
+*.csproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+.idea/
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Asset Cache ──────────────────────────────────────────────
+/Assets/AssetStoreTools*
+*.unitypackage
+
+# ── Crash Reports ────────────────────────────────────────────
+sysinfo.txt
+crashlytics-build.properties
+
+# ============================================================
+# EXCLUDE IMPORTED / PURCHASED ASSET STORE PACKAGES
+# These must be re-imported by each user from the Asset Store.
+# ============================================================
+/Assets/_Erick_ProjectAssets/
+/Assets/_Erick_ProjectAssets.meta
+/Assets/_Recovery/
+/Assets/_Recovery.meta
+/Assets/Complete Vehicle Pack/
+/Assets/Complete Vehicle Pack.meta
+/Assets/SuburbNeighborhoodHousePack/
+/Assets/SuburbNeighborhoodHousePack.meta
+/Assets/NWH/
+/Assets/NWH.meta
+/Assets/NWH Vehicle Physics/
+/Assets/NWH Vehicle Physics.meta
+/Assets/Procedural Worlds/
+/Assets/Procedural Worlds.meta
+/Assets/Realistic Drone/
+/Assets/Realistic Drone.meta
+/Assets/MovementAnimsetPro/
+/Assets/MovementAnimsetPro.meta
+/Assets/TextMesh Pro/
+/Assets/TextMesh Pro.meta
+/Assets/MegaShapes Test Scene/
+/Assets/MegaShapes Test Scene.meta
+/Assets/Samples/
+/Assets/Samples.meta
+/Assets/Gaia User Data/
+/Assets/Gaia User Data.meta
+
+# ── Exclude large binary assets (models, textures, audio) ───
+# These are typically from purchased packs
+/Assets/FBXs/
+/Assets/FBXs.meta
+/Assets/Models/
+/Assets/Models.meta
+/Assets/Textures/
+/Assets/Textures.meta
+/Assets/Audio/
+/Assets/Audio.meta
+/Assets/Animations/
+/Assets/Animations.meta
+/Assets/Animators/
+/Assets/Animators.meta
+/Assets/Characters/
+/Assets/Characters.meta
+/Assets/Charactors/
+/Assets/Charactors.meta
+/Assets/Plugins/
+/Assets/Plugins.meta
+
+# ── Exclude imported character prefabs (Mixamo, etc.) ────────
+/Assets/Prefabs/Characters/
+/Assets/Prefabs/Characters.meta
+
+# ── Exclude Drone FBX models (keep prefabs & scripts) ───────
+/Assets/Drone/Art/model/
+/Assets/Drone/Art/model.meta
+
+# ============================================================
+# INCLUDE (tracked by Git):
+# ============================================================
+# Assets/Scripts/          - All C# scripts
+# Assets/Shaders/          - Custom shaders
+# Assets/ShaderGraphs/     - Shader graphs
+# Assets/ComputeShaders/   - GPU compute shaders
+# Assets/Materials/         - Custom materials
+# Assets/Scenes/           - Scene files
+# Assets/Prefabs/          - Custom prefabs
+# Assets/Prefabs_ROSNET/   - ROS network prefabs
+# Assets/Resources/        - Runtime-loaded assets
+# Assets/RosMessages/      - ROS message definitions
+# Assets/Editor/           - Editor scripts
+# Assets/ai_interfaces/    - AI interface definitions
+# Assets/Drone/            - Drone prefabs/config
+# Assets/unity_robotics_demo_msgs/
+# Packages/manifest.json   - Package dependencies
+# ProjectSettings/         - Project configuration

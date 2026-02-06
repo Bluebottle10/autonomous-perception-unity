@@ -1,0 +1,14 @@
+﻿<Solution>
+  <Project Path="NWH.VehiclePhysics2.csproj" />
+  <Project Path="GaiaCore.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="Unity.Splines.Examples.csproj" />
+  <Project Path="NWH.WheelController.csproj" />
+  <Project Path="GaiaEditor.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="NWH.Common.csproj" />
+  <Project Path="Unity.Splines.Examples.Editor.csproj" />
+  <Project Path="Gaia.UnityURPWater.Editor.csproj" />
+  <Project Path="Gaia.UnityURPWater.Core.csproj" />
+  <Project Path="NWH.VehiclePhysics2.SetupWizard.csproj" />
+</Solution>

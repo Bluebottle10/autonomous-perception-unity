@@ -1,0 +1,35 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel DepthTextureToRanges
+
+Texture2D<float4> source;
+SamplerState MyPointClampSampler;
+uint numTotalPoints, pitchBins, yawBins, snapIndex, ringBins;
+float sensorRange;
+StructuredBuffer<float2> xz;
+RWStructuredBuffer<float> result;
+
+[numthreads(1024, 1, 1)]
+void DepthTextureToRanges(uint id : SV_DispatchThreadID)
+{
+	// In case width/height
+	if (id > numTotalPoints)
+		return;
+
+	// get u & v
+	float u = xz[id].x;
+	float v = xz[id].y;
+
+	//result[id] = float4(u, v, id, numTotalPoints);
+	float4 res = source.SampleLevel(MyPointClampSampler, float2(u, v), 0);
+	float r = 0;
+	if ((res.x * sensorRange) > 0.1 && (res.x * sensorRange) < sensorRange)
+	{
+		r = res.x * sensorRange;
+	}
+	//result[snapIndex * pitchBins * yawBins + id] = r;
+	
+    int row = floor(id / yawBins);
+    int col = id - yawBins * floor(id / yawBins);
+    int gid = (row * ringBins - 1) + ringBins - (col + (snapIndex * yawBins));
+    result[gid] = r;
+}

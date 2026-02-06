@@ -1,0 +1,35 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel DepthTextureToPolarRanges
+
+Texture2D<float> source;
+SamplerState MyPointClampSampler;
+uint pitchBins, yawBins;
+struct bounds
+{
+	uint min_x;
+	uint max_x;
+	uint min_y;
+	uint max_y;
+};
+RWStructuredBuffer<bounds> result;
+
+[numthreads(32,32,1)] // Must match threadsX, threadsY in CapturePanorama.cs
+void DepthTextureToPolarRanges (uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= yawBins  || id.y >= pitchBins) // In case width/height not multiple of numthreads
+	    return;
+
+	float u = (float)id.x/(float)yawBins;
+	float v = (float)id.y/(float)pitchBins;
+
+	int segId = (int)source.SampleLevel(MyPointClampSampler, float2(u, v), 0);
+
+	if(segId < 2)
+		return;
+
+	int org;
+	InterlockedMin( result[segId-2].min_x, id.x, org );
+	InterlockedMax( result[segId-2].max_x, id.x, org );
+	InterlockedMin( result[segId-2].min_y, id.y, org );
+	InterlockedMax( result[segId-2].max_y, id.y, org );
+}
