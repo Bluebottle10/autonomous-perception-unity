@@ -3,41 +3,50 @@ using UnityEngine;
 using Unity.Robotics.ROSTCPConnector;
 using Unity.Robotics.ROSTCPConnector.ROSGeometry;
 
-/// <summary>
-/// Example demonstration of implementing a UnityService that receives a Request message from another ROS node and sends a Response back
-/// </summary>
-public class RosUnityServiceExample : MonoBehaviour
+namespace AutonomousPerception
 {
-    [SerializeField]
-    string m_ServiceName = "obj_pose_srv";
-
-    void Start()
-    {
-        // register the service with ROS
-        ROSConnection.GetOrCreateInstance().ImplementService<ObjectPoseServiceRequest, ObjectPoseServiceResponse>(m_ServiceName, GetObjectPose);
-    }
-
     /// <summary>
-    ///  Callback to respond to the request
+    /// Example: Implements a ROS2 service server in Unity.
+    ///
+    /// Receives an ObjectPoseServiceRequest containing a GameObject name,
+    /// looks up that object in the Unity scene, and returns its pose converted
+    /// from Unity coordinates (Z-fwd, Y-up) to ROS coordinates (X-fwd, Z-up).
+    ///
+    /// <b>Service:</b> obj_pose_srv (unity_robotics_demo_msgs/ObjectPoseService)
     /// </summary>
-    /// <param name="request">service request containing the object name</param>
-    /// <returns>service response containing the object pose (or 0 if object not found)</returns>
-    private ObjectPoseServiceResponse GetObjectPose(ObjectPoseServiceRequest request)
+    public class RosUnityServiceExample : MonoBehaviour
     {
-        // process the service request
-        Debug.Log("Received request for object: " + request.object_name);
+        [Header("ROS2 Service")]
+        [Tooltip("Name of the Unity-side service")]
+        [SerializeField]
+        private string serviceName = "obj_pose_srv";
 
-        // prepare a response
-        ObjectPoseServiceResponse objectPoseResponse = new ObjectPoseServiceResponse();
-        // Find a game object with the requested name
-        GameObject gameObject = GameObject.Find(request.object_name);
-        if (gameObject)
+        void Start()
         {
-            // Fill-in the response with the object pose converted from Unity coordinate to ROS coordinate system
-            objectPoseResponse.object_pose.position = gameObject.transform.position.To<FLU>();
-            objectPoseResponse.object_pose.orientation = gameObject.transform.rotation.To<FLU>();
+            ROSConnection.GetOrCreateInstance()
+                .ImplementService<ObjectPoseServiceRequest, ObjectPoseServiceResponse>(
+                    serviceName, GetObjectPose);
         }
 
-        return objectPoseResponse;
+        /// <summary>
+        /// Service callback: finds the requested GameObject and returns its pose.
+        /// Uses the FLU (Forward-Left-Up) coordinate conversion for ROS compatibility.
+        /// </summary>
+        private ObjectPoseServiceResponse GetObjectPose(ObjectPoseServiceRequest request)
+        {
+            Debug.Log($"[RosUnityService] Received request for object: {request.object_name}");
+
+            var response = new ObjectPoseServiceResponse();
+            var gameObject = GameObject.Find(request.object_name);
+
+            if (gameObject != null)
+            {
+                // Convert Unity coordinates → ROS FLU coordinates
+                response.object_pose.position = gameObject.transform.position.To<FLU>();
+                response.object_pose.orientation = gameObject.transform.rotation.To<FLU>();
+            }
+
+            return response;
+        }
     }
 }

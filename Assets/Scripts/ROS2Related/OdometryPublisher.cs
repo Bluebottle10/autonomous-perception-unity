@@ -6,90 +6,104 @@ using RosMessageTypes.Nav;
 using RosMessageTypes.Std;
 using RosMessageTypes.Tf2;
 
-public class OdometryPublisher : MonoBehaviour
+namespace AutonomousPerception
 {
-    public string odomTopic = "odom";
-    public string tfTopic = "/tf";
-    public string parentFrameId = "odom";
-    public string childFrameId = "base_link";
-
-    private ROSConnection ros;
-    // private Rigidbody robotBody;
-    private float previousRealTime;
-
-    void Start()
+    /// <summary>
+    /// Publishes odometry data and TF transforms from a Unity GameObject to ROS2.
+    ///
+    /// Converts the attached GameObject's position and rotation from Unity's
+    /// coordinate system (Z-forward, Y-up, left-handed) to ROS conventions
+    /// (X-forward, Z-up, right-handed). Publishes both:
+    ///   - nav_msgs/Odometry on /odom
+    ///   - tf2_msgs/TFMessage on /tf (odom → base_link transform)
+    ///
+    /// <b>Default Topics:</b>
+    /// - /odom (nav_msgs/Odometry)
+    /// - /tf (tf2_msgs/TFMessage)
+    ///
+    /// <b>Inspector Settings:</b>
+    /// - odomTopic: Odometry topic name
+    /// - tfTopic: TF topic name
+    /// - parentFrameId / childFrameId: TF frame names
+    /// </summary>
+    public class OdometryPublisher : MonoBehaviour
     {
-        ros = ROSConnection.GetOrCreateInstance();
-        ros.RegisterPublisher<OdometryMsg>(odomTopic);
-        ros.RegisterPublisher<TFMessageMsg>(tfTopic);
+        [Header("ROS2 Topics")]
+        [Tooltip("Topic for nav_msgs/Odometry")]
+        public string odomTopic = "odom";
 
-        // robotBody = GetComponent<Rigidbody>();
-        previousRealTime = Time.realtimeSinceStartup;
-    }
+        [Tooltip("Topic for tf2_msgs/TFMessage")]
+        public string tfTopic = "/tf";
 
-    void FixedUpdate()
-    {
-        // 1. Get Unity Position & Rotation
-        // Convert from Unity (Z-fwd, Y-up) to ROS (X-fwd, Z-up)
-        // Unity Position
-        Vector3 pos = transform.position;
-        // Unity Rotation
-        Quaternion rot = transform.rotation;
+        [Header("TF Frame IDs")]
+        public string parentFrameId = "odom";
+        public string childFrameId = "base_link";
 
-        // ROS Position: Z -> X, -X -> Y, Y -> Z
-        Vector3 rosPos = new Vector3(pos.z, -pos.x, pos.y);
-        
-        // ROS Rotation: Z -> X, -X -> Y, Y -> Z (Complex quaternion mapping)
-        // Standard Unity->ROS conversion:
-        Quaternion rosRot = new Quaternion(-rot.z, rot.x, -rot.y, rot.w);
+        private ROSConnection ros;
+        private float previousRealTime;
 
-        // --- TIME SETUP ---
-        double rostime = (double)System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;;
-        int sec = (int)rostime;
-        uint nanosec = (uint)((rostime - System.Math.Floor(rostime)) * 1e9);
+        void Start()
+        {
+            ros = ROSConnection.GetOrCreateInstance();
+            ros.RegisterPublisher<OdometryMsg>(odomTopic);
+            ros.RegisterPublisher<TFMessageMsg>(tfTopic);
+            previousRealTime = Time.realtimeSinceStartup;
+        }
 
-        // ==========================================
-        // PART A: Publish The /tf Transform (CRITICAL FOR NAV2)
-        // ==========================================
-        TransformStampedMsg tf = new TransformStampedMsg();
-        tf.header.frame_id = parentFrameId;
-        tf.header.stamp.sec = sec;
-        tf.header.stamp.nanosec = nanosec;
-        tf.child_frame_id = childFrameId;
+        /// <summary>
+        /// Publishes odometry and TF every physics step.
+        /// Converts Unity coordinates (Z-fwd, Y-up, left-handed) to
+        /// ROS coordinates (X-fwd, Z-up, right-handed).
+        /// </summary>
+        void FixedUpdate()
+        {
+            // Unity → ROS coordinate conversion
+            Vector3 pos = transform.position;
+            Quaternion rot = transform.rotation;
 
-        tf.transform.translation.x = rosPos.x;
-        tf.transform.translation.y = rosPos.y;
-        tf.transform.translation.z = rosPos.z;
+            // Position: Unity(X,Y,Z) → ROS(Z, -X, Y)
+            Vector3 rosPos = new Vector3(pos.z, -pos.x, pos.y);
 
-        tf.transform.rotation.x = rosRot.x;
-        tf.transform.rotation.y = rosRot.y;
-        tf.transform.rotation.z = rosRot.z;
-        tf.transform.rotation.w = rosRot.w;
+            // Rotation: quaternion coordinate swap
+            Quaternion rosRot = new Quaternion(-rot.z, rot.x, -rot.y, rot.w);
 
-        TFMessageMsg tfMessage = new TFMessageMsg();
-        tfMessage.transforms = new TransformStampedMsg[] { tf };
-        ros.Publish(tfTopic, tfMessage);
+            // Timestamp (wall-clock for ROS2 synchronization)
+            double rostime = (double)System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
+            int sec = (int)rostime;
+            uint nanosec = (uint)((rostime - System.Math.Floor(rostime)) * 1e9);
 
-        // ==========================================
-        // PART B: Publish The /odom Message (For Velocity)
-        // ==========================================
-        OdometryMsg odomMessage = new OdometryMsg();
-        odomMessage.header = tf.header;
-        odomMessage.child_frame_id = childFrameId;
+            // --- Publish /tf (odom → base_link) ---
+            var tf = new TransformStampedMsg();
+            tf.header.frame_id = parentFrameId;
+            tf.header.stamp.sec = sec;
+            tf.header.stamp.nanosec = nanosec;
+            tf.child_frame_id = childFrameId;
 
-        odomMessage.pose.pose.position.x = rosPos.x;
-        odomMessage.pose.pose.position.y = rosPos.y;
-        odomMessage.pose.pose.position.z = rosPos.z;
+            tf.transform.translation.x = rosPos.x;
+            tf.transform.translation.y = rosPos.y;
+            tf.transform.translation.z = rosPos.z;
+            tf.transform.rotation.x = rosRot.x;
+            tf.transform.rotation.y = rosRot.y;
+            tf.transform.rotation.z = rosRot.z;
+            tf.transform.rotation.w = rosRot.w;
 
-        odomMessage.pose.pose.orientation.x = rosRot.x;
-        odomMessage.pose.pose.orientation.y = rosRot.y;
-        odomMessage.pose.pose.orientation.z = rosRot.z;
-        odomMessage.pose.pose.orientation.w = rosRot.w;
+            var tfMessage = new TFMessageMsg();
+            tfMessage.transforms = new TransformStampedMsg[] { tf };
+            ros.Publish(tfTopic, tfMessage);
 
-        // Calculate Velocity (Optional but good for Nav2)
-        // For simplicity in this fix, we leave twist zero or implement logic later.
-        // Nav2 mostly cares about the Pose above.
+            // --- Publish /odom ---
+            var odomMessage = new OdometryMsg();
+            odomMessage.header = tf.header;
+            odomMessage.child_frame_id = childFrameId;
+            odomMessage.pose.pose.position.x = rosPos.x;
+            odomMessage.pose.pose.position.y = rosPos.y;
+            odomMessage.pose.pose.position.z = rosPos.z;
+            odomMessage.pose.pose.orientation.x = rosRot.x;
+            odomMessage.pose.pose.orientation.y = rosRot.y;
+            odomMessage.pose.pose.orientation.z = rosRot.z;
+            odomMessage.pose.pose.orientation.w = rosRot.w;
 
-        ros.Publish(odomTopic, odomMessage);
+            ros.Publish(odomTopic, odomMessage);
+        }
     }
 }

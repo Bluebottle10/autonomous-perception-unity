@@ -4,83 +4,92 @@ using RosMessageTypes.Geometry;
 using RosMessageTypes.Tf2;
 using RosMessageTypes.Std;
 
-public class LidarStaticTfPublisher : MonoBehaviour
+namespace AutonomousPerception
 {
-    // Configuration
-    public string parentFrameId = "base_link"; // The Drone
-    public string childFrameId = "lidar_link"; // The Sensor
-    public string topicName = "/tf";
-
-    // Publish once per second to ensure late-joiners (like RViz) catch it
-    // (Real static TFs use "Transient Local" QoS, but 1Hz is a safe, simple alternative)
-    public float publishRateHz = 1.0f; 
-    
-    private ROSConnection ros;
-    private float timeElapsed;
-
-    void Start()
+    /// <summary>
+    /// Publishes a static TF transform between two frames (e.g., base_link → lidar_link).
+    ///
+    /// In real ROS2, static transforms use "Transient Local" QoS so they persist
+    /// for late-joining subscribers. Since the Unity TCP bridge doesn't support
+    /// QoS profiles, this script re-publishes the static TF at a configurable rate
+    /// (default 1 Hz) as a workaround.
+    ///
+    /// <b>Default Topic:</b> /tf (tf2_msgs/TFMessage)
+    ///
+    /// <b>Inspector Settings:</b>
+    /// - parentFrameId: Parent TF frame (e.g., "base_link")
+    /// - childFrameId: Child TF frame (e.g., "lidar_link")
+    /// - publishRateHz: Re-publish rate for late joiners
+    /// </summary>
+    public class LidarStaticTfPublisher : MonoBehaviour
     {
-        ros = ROSConnection.GetOrCreateInstance();
-        ros.RegisterPublisher<TFMessageMsg>(topicName);
-        
-        // Publish immediately on start
-        PublishStaticTransform();
-    }
+        [Header("TF Frame Configuration")]
+        [Tooltip("Parent frame (e.g., the drone/robot body)")]
+        public string parentFrameId = "base_link";
 
-    void Update()
-    {
-        // Keep publishing periodically just in case RViz/Nav2 restarts
-        timeElapsed += Time.deltaTime;
-        if (timeElapsed >= 1.0f / publishRateHz)
+        [Tooltip("Child frame (e.g., the sensor mount point)")]
+        public string childFrameId = "lidar_link";
+
+        [Header("ROS2 Settings")]
+        [Tooltip("TF topic name")]
+        public string topicName = "/tf";
+
+        [Tooltip("Re-publish rate in Hz (for late-joining subscribers)")]
+        public float publishRateHz = 1.0f;
+
+        private ROSConnection ros;
+        private float timeElapsed;
+
+        void Start()
         {
+            ros = ROSConnection.GetOrCreateInstance();
+            ros.RegisterPublisher<TFMessageMsg>(topicName);
+
+            // Publish immediately so early subscribers get data right away
             PublishStaticTransform();
-            timeElapsed = 0;
         }
-    }
 
-    void PublishStaticTransform()
-    {
-        // 1. Create the TransformStamped (The actual link data)
-        TransformStampedMsg tf = new TransformStampedMsg();
+        void Update()
+        {
+            timeElapsed += Time.deltaTime;
+            if (timeElapsed >= 1.0f / publishRateHz)
+            {
+                PublishStaticTransform();
+                timeElapsed = 0;
+            }
+        }
 
-        // Header (Time + Parent)
-        tf.header.frame_id = parentFrameId;
-        // We can use 0 time for static transforms, or current time. 
-        // Current time is safer for simulation synchronization.
-        // var rostime = Unity.Robotics.Core.Clock.time;
+        /// <summary>
+        /// Builds and publishes an identity transform (no offset, no rotation)
+        /// between parentFrameId and childFrameId.
+        ///
+        /// If the LiDAR sensor script already converts points to the ROS frame,
+        /// the TF should be identity. Adjust translation/rotation here if the
+        /// sensor has a physical offset from the robot center.
+        /// </summary>
+        private void PublishStaticTransform()
+        {
+            var tf = new TransformStampedMsg();
 
-        // NEW (Standard Unity Code):
-        var now = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        double rostime = now / 1000.0 + 0.2;
-        //tf.header.stamp.sec = (int)rostime;
-        //tf.header.stamp.nanosec = (uint)((rostime - System.Math.Floor(rostime)) * 1e9);
-        tf.header.stamp.sec = (int)rostime;
-        tf.header.stamp.nanosec = (uint)((rostime - System.Math.Floor(rostime)) * 1e9);
+            // Timestamp (wall-clock for simulation sync)
+            double rostime = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
+            tf.header.stamp.sec = (int)rostime;
+            tf.header.stamp.nanosec = (uint)((rostime - System.Math.Floor(rostime)) * 1e9);
+            tf.header.frame_id = parentFrameId;
+            tf.child_frame_id = childFrameId;
 
-        // Child Frame
-        tf.child_frame_id = childFrameId;
+            // Identity transform (sensor is co-located with parent frame)
+            tf.transform.translation.x = 0;
+            tf.transform.translation.y = 0;
+            tf.transform.translation.z = 0;
+            tf.transform.rotation.x = 0;
+            tf.transform.rotation.y = 0;
+            tf.transform.rotation.z = 0;
+            tf.transform.rotation.w = 1;
 
-        // Position (0, 0, 0)
-        // Since your Lidar is at the exact center of the drone:
-        tf.transform.translation.x = 0;
-        tf.transform.translation.y = 0;
-        tf.transform.translation.z = 0;
-
-        // Rotation (Identity / No Rotation)
-        // Unity (Z-fwd, Y-up) vs ROS (X-fwd, Z-up).
-        // Since your C# Lidar script ALREADY converts the points to ROS frame manually,
-        // we want the TF to be "Identity" (0,0,0 rotation).
-        tf.transform.rotation.x = 0;
-        tf.transform.rotation.y = 0;
-        tf.transform.rotation.z = 0;
-        tf.transform.rotation.w = 1;
-
-        // 2. Wrap it in a TFMessage (A list of transforms)
-        TFMessageMsg tfMessage = new TFMessageMsg();
-        tfMessage.transforms = new TransformStampedMsg[] { tf };
-
-        // 3. Publish
-        ros.Publish(topicName, tfMessage);
-        // Debug.Log($"Sent TF Update to {topicName} at time {Time.time}");
+            var tfMessage = new TFMessageMsg();
+            tfMessage.transforms = new TransformStampedMsg[] { tf };
+            ros.Publish(topicName, tfMessage);
+        }
     }
 }

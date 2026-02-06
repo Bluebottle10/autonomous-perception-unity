@@ -1,79 +1,98 @@
-﻿using System;
+using System;
 using UnityEngine;
 using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Sensor;
 using RosMessageTypes.Std;
 using Unity.Robotics.ROSTCPConnector.MessageGeneration;
 
-namespace ROS2Related
+namespace AutonomousPerception
 {
-    public class RosImagePublishExample : MonoBehaviour
+    /// <summary>
+    /// Publishes camera RGB images to ROS2 as sensor_msgs/Image.
+    ///
+    /// This script captures frames from the assigned Unity Camera at a configurable
+    /// resolution and frequency, then publishes them over the ROS TCP connection.
+    ///
+    /// <b>Default Topic:</b> /camera/image_raw (sensor_msgs/Image)
+    ///
+    /// <b>Inspector Settings:</b>
+    /// - cam: The Unity Camera to capture from
+    /// - topicName: ROS2 topic name (default: "camera/image_raw")
+    /// - imageWidth/imageHeight: Capture resolution
+    /// - publishMessageFrequency: Seconds between publishes
+    /// </summary>
+    public class RosCameraPublisher : MonoBehaviour
     {
+        [Header("Camera Settings")]
+        [Tooltip("The Unity Camera to capture and publish")]
         public Camera cam;
-        public int imageWidth = 1280;
-        public int imageHeight = 960;
-        public int imageDepth = 8;
-        private Texture2D QuickAccessTexture = null;
-    
-        ROSConnection ros;
-        public string topicName = "cam_view";
-    
-        // Publish the cube's position and rotation every N seconds
-        public float publishMessageFrequency = 0.5f;
 
-        // Used to determine how much time has elapsed since the last message was published
+        [Tooltip("Capture width in pixels")]
+        public int imageWidth = 1280;
+
+        [Tooltip("Capture height in pixels")]
+        public int imageHeight = 960;
+
+        [Tooltip("Render texture bit depth")]
+        public int imageDepth = 8;
+
+        [Header("ROS2 Settings")]
+        [Tooltip("ROS2 topic name for the published image")]
+        public string topicName = "camera/image_raw";
+
+        [Tooltip("Publish interval in seconds (0.1 = 10Hz)")]
+        public float publishMessageFrequency = 0.1f;
+
+        private ROSConnection ros;
+        private Texture2D captureTexture;
         private float timeElapsed;
-    
-    
-        bool _tookImage = false;
-        // Start is called once before the first execution of Update after the MonoBehaviour is created
+
         void Start()
         {
-            // initialize camera capture
             InitializeCamera();
-        
-            // setup ros
+
             ros = ROSConnection.GetOrCreateInstance();
             ros.RegisterPublisher<ImageMsg>(topicName);
         }
 
-        void InitializeCamera()
+        /// <summary>
+        /// Creates a dedicated RenderTexture for the camera to render into,
+        /// and a matching Texture2D for CPU-side pixel readback.
+        /// </summary>
+        private void InitializeCamera()
         {
-            RenderTexture texture = new RenderTexture(imageWidth,imageHeight,imageDepth,RenderTextureFormat.ARGB32);
-            texture.filterMode = FilterMode.Point;
-            texture.antiAliasing = 1;
-            cam.targetTexture = texture;
-            imageWidth = texture.width;
-            imageHeight = texture.height;
-            QuickAccessTexture = new Texture2D((int)imageWidth, (int)imageHeight, TextureFormat.RGB24, false);
+            var renderTex = new RenderTexture(imageWidth, imageHeight, imageDepth, RenderTextureFormat.ARGB32)
+            {
+                filterMode = FilterMode.Point,
+                antiAliasing = 1
+            };
+            cam.targetTexture = renderTex;
+            imageWidth = renderTex.width;
+            imageHeight = renderTex.height;
+            captureTexture = new Texture2D(imageWidth, imageHeight, TextureFormat.RGB24, false);
         }
 
-        // Update is called once per frame
         void Update()
         {
             timeElapsed += Time.deltaTime;
-
-            if (timeElapsed > publishMessageFrequency)
+            if (timeElapsed >= publishMessageFrequency)
             {
-                // publish
-                var msg = GetImage();
+                var msg = CaptureImage();
                 ros.Publish(topicName, msg);
-
                 timeElapsed = 0;
             }
-            
         }
-    
-        public ImageMsg GetImage()
+
+        /// <summary>
+        /// Renders the camera, reads pixels from the GPU, and converts to a ROS ImageMsg.
+        /// </summary>
+        public ImageMsg CaptureImage()
         {
             cam.Render();
-
             RenderTexture.active = cam.targetTexture;
-            QuickAccessTexture.ReadPixels(new Rect(0, 0, imageWidth, imageHeight), 0, 0);
-            QuickAccessTexture.Apply();
-
-            // return QuickAccessTexture.EncodeToPNG();
-            return QuickAccessTexture.ToImageMsg(new HeaderMsg());
+            captureTexture.ReadPixels(new Rect(0, 0, imageWidth, imageHeight), 0, 0);
+            captureTexture.Apply();
+            return captureTexture.ToImageMsg(new HeaderMsg());
         }
     }
 }

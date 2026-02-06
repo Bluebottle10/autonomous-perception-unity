@@ -1,28 +1,46 @@
 using UnityEngine;
 using UnityEngine.Splines;
-using System.Collections.Generic;
-using UnityEngine.Serialization;
 using Unity.Robotics.ROSTCPConnector;
 using RosMessageTypes.Std;
 
-public class RosSplineAnimatorController : MonoBehaviour
+namespace AutonomousPerception
 {
-    public SplineAnimate splineAnim;
-    
-    void Start()
+    /// <summary>
+    /// Controls a SplineAnimate component based on ROS2 stop/go signals.
+    ///
+    /// Subscribes to a Bool topic. When true, the spline animation pauses
+    /// (e.g., pedestrian detected). When false, the animation resumes.
+    ///
+    /// <b>Default Topic:</b> /yolo/stop_signal (std_msgs/Bool)
+    ///
+    /// <b>Inspector Settings:</b>
+    /// - splineAnim: The SplineAnimate component to control
+    /// - topicName: ROS2 Bool topic to subscribe to
+    /// </summary>
+    public class RosSplineAnimatorController : MonoBehaviour
     {
-        ROSConnection.GetOrCreateInstance().Subscribe<BoolMsg>("stopngo", ShouldStop);
-    }
+        [Header("Animation")]
+        [Tooltip("The SplineAnimate component to pause/resume")]
+        public SplineAnimate splineAnim;
 
-    void ShouldStop(BoolMsg msg)
-    {
-        if (msg.data == true)
+        [Header("ROS2 Settings")]
+        [Tooltip("ROS2 topic for stop/go signal (std_msgs/Bool)")]
+        public string topicName = "yolo/stop_signal";
+
+        void Start()
         {
-            splineAnim.Pause();
+            ROSConnection.GetOrCreateInstance().Subscribe<BoolMsg>(topicName, OnStopSignalReceived);
         }
-        else
+
+        /// <summary>
+        /// Callback: pauses spline animation when stop=true, resumes when false.
+        /// </summary>
+        private void OnStopSignalReceived(BoolMsg msg)
         {
-            splineAnim.Play();
+            if (msg.data)
+                splineAnim.Pause();
+            else
+                splineAnim.Play();
         }
     }
 }
